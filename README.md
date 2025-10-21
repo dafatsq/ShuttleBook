@@ -35,7 +35,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000
+Open https://shuttlebook.vercel.app
 
 ## Environment variables
 
