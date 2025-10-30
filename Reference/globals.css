@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --radius: 20px;
+  --glow-a: rgba(14,165,233,0.25); /* sky-500 */
+  --glow-b: rgba(99,102,241,0.25);  /* indigo-500 */
+  --top-wash: rgba(255,255,255,0.55);
+}
+.dark {
+  --glow-a: rgba(56,189,248,0.18); /* sky-400 */
+  --glow-b: rgba(129,140,248,0.18); /* indigo-400 */
+  --top-wash: rgba(255,255,255,0.06);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 transition-colors duration-300;
+  background-image:
+    radial-gradient(1400px 700px at 0% -20%, var(--glow-a), transparent 60%),
+    radial-gradient(1400px 700px at 100% -20%, var(--glow-b), transparent 60%);
+  background-repeat: no-repeat;
+  background-attachment: fixed, fixed;
+}
+
+.card {
+  @apply rounded-card bg-card-light dark:bg-slate-900 shadow-soft dark:shadow-softDark border border-white/10;
+}
+
+.btn-primary {
+  @apply rounded-full bg-primary text-white hover:brightness-110 active:brightness-90 transition-all px-5 py-3 font-medium shadow-soft dark:shadow-softDark;
+}
+
+.input {
+  @apply w-full rounded-full bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50;
+}
+
+/* Hide scrollbar helper */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}

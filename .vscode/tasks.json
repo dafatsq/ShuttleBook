@@ -1,0 +1,34 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "install deps",
+			"type": "shell",
+			"command": "npm install",
+			"args": [],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "dev server",
+			"type": "shell",
+			"command": "npm run dev",
+			"args": [],
+			"isBackground": true,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build app",
+			"type": "shell",
+			"command": "npm run build",
+			"args": [],
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		}
+	]
+}
