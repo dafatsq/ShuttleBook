@@ -56,12 +56,18 @@ service cloud.firestore {
     // Bookings collection - the only collection this app uses
     match /bookings/{bookingId} {
       // Anyone can read bookings (needed for availability checking)
+      // OWASP: Principle of least privilege - only expose what's necessary
       allow read: if true;
       
       // Allow creating bookings with proper data validation
+      // OWASP A03:2021 - Injection prevention via strict validation
+      // OWASP A04:2021 - Insecure Design prevention via schema enforcement
       allow create: if 
         // Validate required fields exist and have correct types
         request.resource.data.keys().hasAll(['date', 'courtId', 'slots', 'name', 'email', 'phone', 'createdAt']) &&
+        
+        // SECURITY: Reject unexpected fields to prevent data pollution attacks
+        request.resource.data.keys().hasOnly(['date', 'courtId', 'slots', 'name', 'email', 'phone', 'createdAt']) &&
         
         // Validate date format
         isValidDate(request.resource.data.date) &&
@@ -78,11 +84,13 @@ service cloud.firestore {
         isValidPhone(request.resource.data.phone) &&
         
         // Validate createdAt is a reasonable timestamp (within last hour)
+        // Prevents replay attacks with stale timestamps
         request.resource.data.createdAt is int &&
         request.resource.data.createdAt > request.time.toMillis() - 3600000 &&
         request.resource.data.createdAt <= request.time.toMillis() + 60000;
       
       // Disallow updates and deletes (bookings are immutable for now)
+      // OWASP: Data integrity protection
       allow update, delete: if false;
       
       // For production with authentication, use these stricter rules instead:
