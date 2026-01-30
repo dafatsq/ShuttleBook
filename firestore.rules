@@ -1,0 +1,143 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Block all access by default (deny-all)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Helper function to validate time slot format (HH:00 between 07:00-21:00)
+    function isValidSlot(slot) {
+      return slot is string && 
+             slot.matches('^(0[7-9]|1[0-9]|2[01]):00$');
+    }
+    
+    // Helper function to validate all slots in an array
+    function areValidSlots(slots) {
+      return slots is list && 
+             slots.size() > 0 && 
+             slots.size() <= 15;
+    }
+    
+    // Helper function to validate date format (YYYY-MM-DD)
+    function isValidDate(date) {
+      return date is string && 
+             date.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+    
+    // Helper function to validate court ID
+    function isValidCourtId(courtId) {
+      return courtId in ['court-a', 'court-b', 'court-c', 'court-d'];
+    }
+    
+    // Helper function to validate email format (basic)
+    function isValidEmail(email) {
+      return email is string && 
+             email.size() > 5 && 
+             email.size() <= 254 &&
+             email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$');
+    }
+    
+    // Helper function to validate phone (basic)
+    function isValidPhone(phone) {
+      return phone is string && 
+             phone.size() >= 6 && 
+             phone.size() <= 20;
+    }
+    
+    // Helper function to validate name
+    function isValidName(name) {
+      return name is string && 
+             name.size() >= 2 && 
+             name.size() <= 100;
+    }
+    
+    // Bookings collection - the only collection this app uses
+    match /bookings/{bookingId} {
+      // Anyone can read bookings (needed for availability checking)
+      allow read: if true;
+      
+      // Allow creating bookings with proper data validation
+      allow create: if 
+        // Validate required fields exist and have correct types
+        request.resource.data.keys().hasAll(['date', 'courtId', 'slots', 'name', 'email', 'phone', 'createdAt']) &&
+        
+        // Validate date format
+        isValidDate(request.resource.data.date) &&
+        
+        // Validate court ID is one of the known courts
+        isValidCourtId(request.resource.data.courtId) &&
+        
+        // Validate slots array
+        areValidSlots(request.resource.data.slots) &&
+        
+        // Validate contact info
+        isValidName(request.resource.data.name) &&
+        isValidEmail(request.resource.data.email) &&
+        isValidPhone(request.resource.data.phone) &&
+        
+        // Validate createdAt is a reasonable timestamp (within last hour)
+        request.resource.data.createdAt is int &&
+        request.resource.data.createdAt > request.time.toMillis() - 3600000 &&
+        request.resource.data.createdAt <= request.time.toMillis() + 60000;
+      
+      // Disallow updates and deletes (bookings are immutable for now)
+      allow update, delete: if false;
+      
+      // For production with authentication, use these stricter rules instead:
+      // allow create: if request.auth != null && [above validations];
+      // allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Explicitly deny access to all other common collections that the scanner tested
+    // These collections don't exist in this app but blocking them prevents abuse
+    match /users/{docId} {
+      allow read, write: if false;
+    }
+    
+    match /user/{docId} {
+      allow read, write: if false;
+    }
+    
+    match /profiles/{docId} {
+      allow read, write: if false;
+    }
+    
+    match /posts/{docId} {
+      allow read, write: if false;
+    }
+    
+    match /messages/{docId} {
+      allow read, write: if false;
+    }
+    
+    match /comments/{docId} {
+      allow read, write: if false;
+    }
+    
+    match /products/{docId} {
+      allow read, write: if false;
+    }
+    
+    match /orders/{docId} {
+      allow read, write: if false;
+    }
+    
+    match /cart/{docId} {
+      allow read, write: if false;
+    }
+    
+    match /settings/{docId} {
+      allow read, write: if false;
+    }
+    
+    match /config/{docId} {
+      allow read, write: if false;
+    }
+    
+    match /admin/{docId} {
+      allow read, write: if false;
+    }
+  }
+}

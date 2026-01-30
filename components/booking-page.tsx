@@ -90,8 +90,9 @@ export default function BookingPage() {
         setBookedSlots(taken)
         // Deselect any selected that are no longer available
         setSelected((prev: TimeSlot[]) => prev.filter((s: TimeSlot) => !taken.includes(s)))
-      } catch (e) {
-        console.error(e)
+      } catch {
+        // Silently fail - user can still proceed, slots will be re-validated at payment
+        setBookedSlots([])
       }
     }
     fetchBooked()

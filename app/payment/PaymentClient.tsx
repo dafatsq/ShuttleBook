@@ -6,6 +6,14 @@ import { db, isFirebaseEnabled } from '@/lib/firebase'
 import { COURTS, formatIDR } from '@/lib/courts'
 import { addDoc, collection, getDocs, query, where } from 'firebase/firestore'
 
+// Client-side validation functions (mirroring server-side)
+const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) && v.length <= 254
+const isValidPhone = (v: string) => /^\d{6,15}$/.test(v.replace(/[\s\-\(\)\+]/g, ''))
+const isValidName = (v: string) => v.trim().length >= 2 && v.trim().length <= 100
+const isValidDateFormat = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d)
+const isValidCourtId = (c: string) => ['court-a', 'court-b', 'court-c', 'court-d'].includes(c)
+const isValidTimeSlot = (s: string) => /^(0[7-9]|1[0-9]|2[01]):00$/.test(s)
+
 export default function PaymentClient() {
   const params = useSearchParams()
   const router = useRouter()
@@ -16,13 +24,25 @@ export default function PaymentClient() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const pricePerHour = useMemo(() => COURTS.find(c => c.id === courtId)?.pricePerHour ?? 0, [courtId])
   const total = useMemo(() => slots.length * 1.0 * pricePerHour, [slots, pricePerHour])
 
-  const validEmail = (v: string) => /.+@.+\..+/.test(v)
-  const validPhone = (v: string) => v.trim().length >= 6
-  const canSubmit = name.trim().length > 1 && validEmail(email) && validPhone(phone) && slots.length > 0
+  // Validate URL parameters
+  const paramsValid = useMemo(() => {
+    return isValidDateFormat(date) && 
+           isValidCourtId(courtId) && 
+           slots.length > 0 && 
+           slots.length <= 15 &&
+           slots.every(isValidTimeSlot)
+  }, [date, courtId, slots])
+
+  const canSubmit = paramsValid && 
+                   isValidName(name) && 
+                   isValidEmail(email) && 
+                   isValidPhone(phone) && 
+                   !isSubmitting
 
   const pay = async () => {
     if (!isFirebaseEnabled || !db) {
@@ -33,35 +53,57 @@ export default function PaymentClient() {
       alert('Please complete name, email, and phone correctly.')
       return
     }
-    // Re-check availability to avoid double booking
-    const qy = query(
-      collection(db, 'bookings'),
-      where('date', '==', date),
-      where('courtId', '==', courtId)
-    )
-    const snap = await getDocs(qy)
-    const taken: string[] = []
-    snap.forEach(d => {
-      const s = d.data().slots as string[]
-      taken.push(...s)
-    })
-    const conflict = slots.some(s => taken.includes(s))
-    if (conflict) {
-      alert('One or more selected time slots were just booked by someone else. Please go back and reselect.')
-      return
-    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      // Re-check availability to avoid double booking
+      const qy = query(
+        collection(db, 'bookings'),
+        where('date', '==', date),
+        where('courtId', '==', courtId)
+      )
+      const snap = await getDocs(qy)
+      const taken: string[] = []
+      snap.forEach(d => {
+        const s = d.data().slots as string[]
+        taken.push(...s)
+      })
+      const conflict = slots.some(s => taken.includes(s))
+      if (conflict) {
+        alert('One or more selected time slots were just booked by someone else. Please go back and reselect.')
+        setIsSubmitting(false)
+        return
+      }
 
-    await addDoc(collection(db, 'bookings'), {
-      date,
-      courtId,
-      slots,
-      name: name.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      createdAt: Date.now(),
-    })
-    const qs = new URLSearchParams({ date, courtId, count: String(slots.length), name, email, phone })
-    router.push(`/success?${qs.toString()}`)
+      // Sanitize and limit input data before storing
+      const sanitizedName = name.trim().slice(0, 100)
+      const sanitizedEmail = email.trim().toLowerCase().slice(0, 254)
+      const sanitizedPhone = phone.trim().slice(0, 20)
+
+      await addDoc(collection(db, 'bookings'), {
+        date,
+        courtId,
+        slots,
+        name: sanitizedName,
+        email: sanitizedEmail,
+        phone: sanitizedPhone,
+        createdAt: Date.now(),
+      })
+      
+      const qs = new URLSearchParams({ 
+        date, 
+        courtId, 
+        count: String(slots.length), 
+        name: sanitizedName, 
+        email: sanitizedEmail, 
+        phone: sanitizedPhone 
+      })
+      router.push(`/success?${qs.toString()}`)
+    } catch {
+      alert('An error occurred. Please try again.')
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -94,9 +136,19 @@ export default function PaymentClient() {
             placeholder="Phone number"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            maxLength={20}
           />
         </div>
-        <button onClick={pay} disabled={!canSubmit} className={`btn-primary mt-6 w-full ${!canSubmit ? 'opacity-60 pointer-events-none' : ''}`}>Pay now</button>
+        {!paramsValid && (
+          <p className="text-red-500 text-sm mt-2">Invalid booking parameters. Please go back and try again.</p>
+        )}
+        <button 
+          onClick={pay} 
+          disabled={!canSubmit} 
+          className={`btn-primary mt-6 w-full ${!canSubmit ? 'opacity-60 pointer-events-none' : ''}`}
+        >
+          {isSubmitting ? 'Processing...' : 'Pay now'}
+        </button>
         <Link className="block text-center mt-3 opacity-70" href="/">Back</Link>
       </section>
     </main>
